@@ -15,7 +15,15 @@
 body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;font-variant-numeric:tabular-nums}
 body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(90px);z-index:-1;background:var(--ac);transition:background .4s}
 body::before{width:340px;height:340px;top:-90px;right:-100px;opacity:.38}body::after{width:280px;height:280px;bottom:50px;left:-110px;opacity:.2}
+
+/* --- Adaptabilidad PC vs Celular --- */
 #app{max-width:480px;margin:auto;padding:max(14px,env(safe-area-inset-top)) 16px 120px}
+@media(min-width:768px){
+  body{display:grid;place-items:center;padding:30px 0}
+  #app{width:100%;max-width:520px;background:var(--solid);border:1px solid var(--bd);box-shadow:var(--sh);border-radius:32px;padding:32px 32px 130px;position:relative}
+  nav{width:calc(100% - 64px) !important;max-width:456px !important;left:32px !important;transform:none !important}
+}
+
 .glass{background:var(--glass);border:1px solid var(--bd);box-shadow:var(--sh);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border-radius:24px}
 .card{padding:18px;margin-bottom:12px}
 .top{display:flex;align-items:center;gap:12px;margin:6px 0 18px}.top h1{font-size:1.2rem;font-weight:800;line-height:1.15}.top small{color:var(--mut);font-size:.78rem;text-transform:capitalize}
@@ -48,10 +56,6 @@ nav button{flex:1;border:0;background:none;color:var(--mut);padding:9px 0;border
 table{width:100%;border-collapse:collapse;font-size:.82rem}th,td{padding:10px 6px;text-align:left;border-bottom:1px solid var(--ln)}th{color:var(--mut);font-weight:700;font-size:.72rem}td:last-child,th:last-child{text-align:right}.tw{overflow-x:auto}
 .empty{text-align:center;color:var(--mut);padding:30px 10px}.warn{background:rgba(245,158,11,.16);color:#d98a06;padding:12px 14px;border-radius:16px;font-weight:700;font-size:.85rem;margin-bottom:12px}
 .link{display:block;text-align:center;border:0;background:none;color:var(--ac);font:700 .85rem Manrope;margin:14px auto 0;cursor:pointer}
-.gov{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;padding:max(18px,env(safe-area-inset-top)) 22px 30px}.gov>div{max-width:480px;margin:auto}
-.gov h2{font-size:2rem;font-weight:500;margin:34px 0 10px}.gov .hd{display:flex;gap:14px;align-items:center;font-weight:600;padding-bottom:14px;border-bottom:1px solid var(--ln)}.gov .hd i{font-size:1.5rem}
-.gi{display:flex;gap:16px;align-items:center;width:100%;padding:16px 0;border:0;border-bottom:1px solid var(--ln);background:none;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
-.gi .ga{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:1.1rem;flex:none}.gi b{display:block;font-weight:600}.gi span{color:var(--mut);font-size:.9rem}
 option{background:var(--solid);color:var(--txt)}
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -79,7 +83,6 @@ nav button{transition:all .2s}nav button.on{box-shadow:0 6px 18px color-mix(in s
 .rng.lit{background:linear-gradient(90deg,#000,var(--ac),#fff)}
 .rng::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;border:5px solid var(--ac);box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer}
 .rng::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:5px solid var(--ac);cursor:pointer}
-option{background:var(--solid);color:var(--txt)}
 </style>
 </head>
 <body>
@@ -88,10 +91,8 @@ option{background:var(--solid);color:var(--txt)}
 const $=s=>document.querySelector(s),money=n=>'$'+Math.round(n||0).toLocaleString('es-CO'),v=id=>document.getElementById(id)?.value.trim();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toLocaleDateString('en-CA');
-const st={token:localStorage.tc_token||'',user:null,view:'home',date:today(),d:null,mode:'login',google:false};
+const st={token:localStorage.tc_token||'',user:null,view:'home',date:today(),d:null,mode:'login'};
 const ACC={Esmeralda:['#10b981','#fff'],'Azul eléctrico':['#2f6bff','#fff'],Morado:['#8b5cf6','#fff'],Fucsia:['#d946ef','#fff'],Ámbar:['#f59e0b','#201500']};
-const GMAIL=[['Sebastián Andrés Coronado Palencia','sebastiancoronadopalencia@gmail.com'],['Sebastián Coronado','sc282632@gmail.com'],['Derek Tejada','tejadaderek105@gmail.com'],['Sebastian','sebxs.index@gmail.com']];
-const GCOL=['#3b82f6','#2e7d32','#f59e0b','#8b5cf6','#ef4444'];
 const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
 const S=o=>Swal.fire({background:css('--solid'),color:css('--txt'),confirmButtonColor:css('--ac'),cancelButtonText:'Cancelar',...o});
 const toast=(t,icon='success')=>S({toast:true,position:'top',icon,title:t,showConfirmButton:false,timer:2200});
@@ -102,7 +103,7 @@ const pickColor=()=>S({title:'Color de la app',html:`<div class="sw">${swatches(
 const setAcc=n=>{localStorage.removeItem('tc_custom');localStorage.tc_acc=n;theme();Swal.close();render()};
 async function api(p,m='GET',b){const r=await fetch('/api/'+p,{method:m,headers:{'Content-Type':'application/json','X-Token':st.token},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));if(r.status===401&&st.user)endSession();if(!r.ok)throw new Error(j.error||'Error de conexión');return j}
 const run=async f=>{try{await f()}catch(e){S({icon:'error',title:'No se pudo completar',text:e.message})}};
-function enter(j,nuevo){st.token=j.token;st.user=j.user;localStorage.tc_token=j.token;st.view='home';st.google=false;st.d=null;load().then(()=>nuevo&&pedirNombre())}
+function enter(j,nuevo){st.token=j.token;st.user=j.user;localStorage.tc_token=j.token;st.view='home';st.d=null;load().then(()=>nuevo&&pedirNombre())}
 function endSession(){st.token='';st.user=null;st.d=null;localStorage.removeItem('tc_token');render()}
 const logout=()=>run(async()=>{await api('logout','POST');endSession()});
 async function load(){try{st.d=await api('data?date='+st.date);render()}catch(e){if(st.user)S({icon:'error',title:'Sin conexión',text:e.message})}}
@@ -116,7 +117,7 @@ function setCustom(){const h=+$('#hue').value,l=+$('#lit').value;localStorage.tc
 function countUp(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;const e=$('.hero b[data-v]');if(!e)return;const T=+e.dataset.v,t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/800);e.textContent=money(T*(1-Math.pow(1-k,3)));k<1&&requestAnimationFrame(f)})(t0)}
 const EC={'Pendiente':'#ef4444','En espera':'#f59e0b','Pagado':'#10b981'};
 /* ---------- Acceso ---------- */
-function authView(){if(st.google)return googleView();const l=st.mode==='login';return `
+function authView(){const l=st.mode==='login';return `
 <div class="top"><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>
 <div class="brand"><div class="av"><i class="fa-solid fa-hand-holding-dollar"></i></div><h1>Tu Cobro</h1><p>Tu ruta, tu caja y tus clientes en un solo lugar</p></div>
 <div class="glass tabs"><button class="${l?'on':''}" onclick="st.mode='login';render()">Entrar</button><button class="${l?'':'on'}" onclick="st.mode='reg';render()">Crear cuenta</button></div>
@@ -126,15 +127,7 @@ ${l?'':'<label>Correo o teléfono</label><input id="a2" required>'}
 <label>Contraseña${l?'':' (mínimo 6 caracteres)'}</label><input id="a3" type="password" autocomplete="${l?'current-password':'new-password'}" required>
 ${l?'':'<label>Código de seguridad (para recuperar tu clave)</label><input id="a4" inputmode="numeric" maxlength="6" placeholder="Mínimo 4 dígitos" required>'}
 <button class="btn">${l?'Iniciar sesión':'Crear mi cuenta'}</button></form>
-<button class="btn alt" onclick="st.google=true;render()"><i class="fa-brands fa-google"></i>&nbsp; Continuar con Google</button>
 ${l?'<button class="link" onclick="recover()">¿Olvidaste tu contraseña?</button>':''}</div>`}
-function googleView(){return `<div class="gov"><div><div class="hd"><i class="fa-brands fa-google"></i><span>Acceder con Google</span></div><h2>Elige una cuenta</h2><p style="font-size:1.05rem;color:var(--mut)">Ir a <b style="color:var(--ac)">Tu Cobro</b></p><div style="margin-top:30px">
-${GMAIL.map((g,i)=>`<button class="gi" onclick="gLogin(${i})"><div class="ga" style="background:${GCOL[i%5]}">${esc(g[0][0])}</div><div><b>${esc(g[0])}</b><span>${esc(g[1])}</span></div></button>`).join('')}
-<button class="gi" onclick="gOther()"><div class="ga" style="background:none;color:var(--mut);border:1.5px solid var(--ln)"><i class="fa-regular fa-user"></i></div><b>Usar otra cuenta</b></button></div>
-<button class="link" onclick="st.google=false;render()">Cancelar</button></div></div>`}
-const gSend=(name,email)=>run(async()=>{const j=await api('google','POST',{name,email});enter(j,!j.user.nombre)});
-const gLogin=i=>gSend(GMAIL[i][0],GMAIL[i][1]);
-const gOther=()=>S({title:'Usar otra cuenta',input:'email',inputPlaceholder:'Correo de Gmail',showCancelButton:true,confirmButtonText:'Siguiente'}).then(r=>r.isConfirmed&&gSend('',r.value));
 const doLogin=()=>run(async()=>enter(await api('login','POST',{id:v('a1'),password:v('a3')})));
 const doReg=()=>run(async()=>enter(await api('register','POST',{usuario:v('a1'),contacto:v('a2'),password:v('a3'),pin:v('a4')}),true));
 function pedirNombre(){S({title:'¿Cómo quieres que te llamemos?',text:'Este nombre se mostrará en lugar de tu correo o teléfono.',input:'text',inputPlaceholder:'Tu nombre',allowOutsideClick:false,inputValidator:x=>!x.trim()&&'Escribe un nombre'}).then(r=>run(async()=>{st.user=(await api('profile','PUT',{nombre:r.value})).user;render()}))}
