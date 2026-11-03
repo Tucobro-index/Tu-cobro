@@ -15,7 +15,7 @@ db.setdefault("sessions", {})
 def save():
     tmp = DB_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f: json.dump(db, f, ensure_ascii=False)
-    os.replace(tmp, DB_FILE)                     # escritura atómica: nunca queda a medias
+    os.replace(tmp, DB_FILE)
     bd = os.path.join(BASE, "backups"); os.makedirs(bd, exist_ok=True)
     shutil.copy(DB_FILE, os.path.join(bd, f"data-{datetime.now():%Y%m%d}.json"))
     for old in sorted(os.listdir(bd))[:-14]: os.remove(os.path.join(bd, old))
@@ -58,12 +58,73 @@ def find(key):
 @app.get("/")
 def index(): return app.send_static_file("index.html")
 
+# ---------- Panel de Administración Privado para Crear Usuarios ----------
+@app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    if request.method == "POST":
+        # CLAVE MAESTRA: Puedes cambiarla por la que tú quieras aquí mismo
+        ADMIN_SECRET = "sebastian2026"
+        
+        if request.form.get("admin_key") != ADMIN_SECRET:
+            return "<h3>❌ Clave de administrador incorrecta. <a href='/admin'>Volver</a></h3>", 403
+        
+        uname = request.form.get("usuario", "").strip()
+        pwd = request.form.get("password", "").strip()
+        pin = request.form.get("pin", "").strip()
+        
+        if not uname or not pwd or not pin:
+            return "<h3>❌ Todos los campos son obligatorios. <a href='/admin'>Volver</a></h3>", 400
+            
+        if find(uname):
+            return f"<h3>❌ El usuario '{uname}' ya existe en el sistema. <a href='/admin'>Volver</a></h3>", 400
+            
+        uid = uuid.uuid4().hex[:10]
+        db["users"][uid] = {
+            "id": uid,
+            "usuario": uname,
+            "nombre": uname,
+            "password": pwd,
+            "pin": pin,
+            "foto": "",
+            "credits": [],
+            "gastos": [],
+            "extras": [],
+            "bases": {},
+            "cierres": {}
+        }
+        save()
+        return f"<h3>✅ ¡Cliente '{uname}' creado con éxito! <a href='/'>Ir al inicio de sesión</a></h3>"
+        
+    return '''<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin - Tu Cobro</title>
+<style>body{font-family:sans-serif;background:#0a110f;color:#fff;display:grid;place-items:center;height:100vh;margin:0}
+form{background:#16221e;padding:24px;border-radius:16px;width:320px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px}
+input,button{padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-size:1rem;outline:0}
+input:focus{border-color:#10b981}
+button{background:#10b981;cursor:pointer;font-weight:bold;border:0;margin-top:6px}
+h3{margin:0 0 10px;text-align:center;color:#10b981}
+a{color:#10b981;text-decoration:none;font-size:.9rem;text-align:center}
+</style>
+</head>
+<body>
+<form method="POST">
+  <h3>Crear Nuevo Cliente</h3>
+  <input name="admin_key" type="password" placeholder="Clave maestra de admin" required>
+  <input name="usuario" placeholder="Usuario del cliente" required>
+  <input name="password" type="password" placeholder="Contraseña" required>
+  <input name="pin" placeholder="PIN de seguridad (4 dígitos)" required>
+  <button type="submit">Guardar Cuenta</button>
+  <a href="/">Volver al inicio</a>
+</form>
+</body>
+</html>'''
+
 # ---------- Autenticación ----------
 @app.post("/api/login")
 def login():
     d = request.json or {}
     u = find(d.get("id"))
-    # Comprobación directa de contraseña en texto plano
     if not u or u.get("password") != str(d.get("password", "")):
         return err("Usuario o contraseña incorrectos", 401)
     return session(u)
@@ -72,7 +133,6 @@ def login():
 def recover():
     d = request.json or {}
     u = find(d.get("id"))
-    # Comprobación directa del PIN en texto plano
     if not u or str(u.get("pin", "")) != str(d.get("pin", "")) or len(d.get("password", "")) < 6:
         return err("Usuario o código incorrecto, o contraseña menor a 6 caracteres", 401)
     u["password"] = str(d.get("password"))
