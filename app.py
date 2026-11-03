@@ -73,17 +73,6 @@ def new_user(usuario, email, tel, password, pin, nombre=""):
 def index(): return app.send_static_file("index.html")
 
 # ---------- Autenticación ----------
-@app.post("/api/register")
-def register():
-    d = request.json or {}
-    usuario, contacto = str(d.get("usuario", "")).strip(), str(d.get("contacto", "")).strip().lower()
-    if len(usuario) < 3 or len(d.get("password", "")) < 6 or len(str(d.get("pin", ""))) < 4:
-        return err("Usuario (mín. 3), contraseña (mín. 6) y código de seguridad (mín. 4) son obligatorios")
-    email, tel = (contacto, "") if "@" in contacto else ("", digits(contacto))
-    if not (email or tel): return err("Ingresa un correo o un teléfono válido")
-    if find(usuario) or find(email) or find(tel): return err("Ese usuario, correo o teléfono ya está registrado", 409)
-    return session(new_user(usuario, email, tel, d["password"], str(d["pin"])))
-
 @app.post("/api/login")
 def login():
     d = request.json or {}
@@ -93,15 +82,6 @@ def login():
     if not u or not chk(u["hash"], d.get("password", "")):
         failed(key); return err("Datos de acceso incorrectos", 401)
     FAILS.pop(key, None)
-    return session(u)
-
-@app.post("/api/google")  # SIMULADO: desactívalo en producción con TUCOBRO_DEMO_GOOGLE=0 y usa Google OAuth real
-def google():
-    if os.getenv("TUCOBRO_DEMO_GOOGLE", "1") != "1": return err("Acceso con Google no disponible", 403)
-    d = request.json or {}
-    email = str(d.get("email", "")).strip().lower()
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email): return err("Correo inválido")
-    u = find(email) or new_user(email.split("@")[0], email, "", secrets.token_hex(12), secrets.token_hex(4), str(d.get("name", ""))[:40])
     return session(u)
 
 @app.post("/api/recover")
@@ -249,7 +229,8 @@ def export():
     d = request.args.get("date", "")
     if not okdate(d): return err("Fecha inválida")
     s, out = summary(u, d), io.StringIO()
-    w = csv.writer(out)
+    # Usamos punto y coma (;) como delimitador para que Excel separe las columnas correctamente
+    w = csv.writer(out, delimiter=';')
     w.writerow(["Tu Cobro", d]); w.writerow([])
     w.writerow(["Cliente", "Cuota diaria", "Cuotas pendientes", "Abonó hoy", "Saldo", "Estado"])
     for r in s["rows"]: w.writerow([safe(r["cliente"]), r["cuota"], r["faltan"], r["hoy"], r["saldo"], r["estado"]])
