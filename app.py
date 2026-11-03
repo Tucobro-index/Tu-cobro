@@ -44,7 +44,6 @@ def public(u):
         "foto": u.get("foto", "")
     }
 
-# CORRECCIÓN: La función tok ahora devuelve el token correctamente sin descartarlo
 def tok(t): return str(t or "")
 
 def session(u):
@@ -174,7 +173,7 @@ def profile():
 def closed(u, f): return bool(u["cierres"].get(f))
 
 def summary(u, d):
-    rows, activos, hist, rec, cartera = [], [], [], 0, 0
+    rows, activos, hist, completados, rec, cartera = [], [], [], [], 0, 0
     for c in u["credits"]:
         pagado = sum(a["monto"] for a in c["abonos"])
         saldo, bal = max(round(c["total"] - pagado), 0), c["total"]
@@ -183,7 +182,11 @@ def summary(u, d):
         for a in c["abonos"]:
             bal -= a["monto"]
             hist.append(dict(fecha=a["fecha"], cliente=c["cliente"], monto=a["monto"], saldo=max(round(bal), 0)))
-        if saldo > 0: activos.append(dict(cliente=c["cliente"], total=c["total"], saldo=saldo))
+        if saldo > 0: 
+            activos.append(dict(cliente=c["cliente"], total=c["total"], saldo=saldo))
+        else:
+            completados.append(dict(id=c["id"], cliente=c["cliente"], total=c["total"]))
+            
         if saldo > 0 or hoy > 0:
             est = "Pagado" if hoy >= c["cuota"] or saldo <= 0 else ("En espera" if c.get("espera") == d else "Pendiente")
             rows.append({**{k: c.get(k, "") for k in ("id", "cliente", "cc", "direccion", "tel", "total", "cuota")}, "saldo": saldo, "hoy": hoy, "estado": est,
@@ -192,7 +195,7 @@ def summary(u, d):
     gastos, extras = [g for g in u["gastos"] if g["fecha"] == d], [x for x in u["extras"] if x["fecha"] == d]
     gt, et, base = sum(g["monto"] for g in gastos), sum(x["monto"] for x in extras), u["bases"].get(d, 0)
     hist.sort(key=lambda h: h["fecha"], reverse=True)
-    return dict(rows=rows, activos=activos, historial=hist[:80], recaudo=rec, cartera=cartera, base=base, egresos=egresos,
+    return dict(rows=rows, activos=activos, completados=completados, historial=hist[:80], recaudo=rec, cartera=cartera, base=base, egresos=egresos,
                 gastos=gastos, gastos_total=gt, extras=extras, extras_total=et, abierta=not closed(u, d),
                 caja=base + rec + et - egresos - gt)
 
@@ -249,6 +252,14 @@ def wait(cid):
     if c: c["espera"] = d["fecha"]; save()
     return jsonify(ok=True)
 
+@app.post("/api/credits/<cid>/delete")
+def delete_credit(cid):
+    u = me()
+    if not u: return err("Sesión expirada", 401)
+    u["credits"] = [c for c in u["credits"] if c["id"] != cid]
+    save()
+    return jsonify(ok=True)
+
 @app.post("/api/cash")
 def cash():
     d = request.json or {}
@@ -263,7 +274,7 @@ def cash():
     try: m = float(d["monto"]); assert 0 <= m < 1e10
     except Exception: return err("Monto inválido")
     t, concepto = d.get("tipo"), (str(d.get("concepto", "")).strip() or "Sin concepto")[:60]
-    if t == "base": u["bases"][d["fecha"]] = m
+    if t == "base": u["bases"][d["fecha"]] = int(m) # Asegurar entero para la base
     elif t == "gasto": u["gastos"].append(dict(fecha=d["fecha"], concepto=concepto, monto=m))
     elif t == "extra": u["extras"].append(dict(fecha=d["fecha"], concepto=concepto, monto=m))
     else: return err("Operación inválida")
