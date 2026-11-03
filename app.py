@@ -33,7 +33,18 @@ def headers(r):
 def err(msg, code=400): return jsonify(error=msg), code
 def okdate(s): return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", s or ""))
 def digits(s): return "".join(c for c in str(s) if c.isdigit())
-def public(u): return {k: u[k] for k in ("id", "usuario", "email", "tel", "nombre", "foto")}
+
+# Función segura para evitar KeyError si falta algún campo opcional
+def public(u): 
+    return {
+        "id": u.get("id", ""),
+        "usuario": u.get("usuario", ""),
+        "email": u.get("email", ""),
+        "tel": u.get("tel", ""),
+        "nombre": u.get("nombre", ""),
+        "foto": u.get("foto", "")
+    }
+
 def tok(t): return secrets.token_hex(32)
 
 def session(u):
@@ -62,7 +73,6 @@ def index(): return app.send_static_file("index.html")
 @app.route("/admin", methods=["GET", "POST"])
 def admin_panel():
     if request.method == "POST":
-        # CLAVE MAESTRA: Puedes cambiarla por la que tú quieras aquí mismo
         ADMIN_SECRET = "sebastian2026"
         
         if request.form.get("admin_key") != ADMIN_SECRET:
