@@ -1,14 +1,12 @@
 {
   "users": {
-    "alexis_id_unico_2026": {
-      "id": "alexis_id_unico_2026",
+    "alexis_id": {
+      "id": "alexis_id",
       "usuario": "Alexis",
-      "email": "",
-      "tel": "3212261588",
       "nombre": "Alexis",
+      "password": "corher2014",
+      "pin": "2014",
       "foto": "",
-      "hash": "scrypt:32768:8:1$vT0cK9mP$78a514d72810cd0a2662c1619aa67341cf6dc113cf58849666cfb31548cf53a232f05a109ecb700b0dc6814983057e05ea8fa00fae0971a81577778b7bde2135",
-      "pin": "scrypt:32768:8:1$qR3wE5tY$e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "credits": [],
       "gastos": [],
       "extras": [],
