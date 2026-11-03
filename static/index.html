@@ -27,7 +27,8 @@ body::before{width:340px;height:340px;top:-90px;right:-100px;opacity:.38}body::a
 .card{padding:18px;margin-bottom:12px}
 .top{display:flex;align-items:center;gap:12px;margin:6px 0 18px}.top h1{font-size:1.2rem;font-weight:800;line-height:1.15}.top small{color:var(--mut);font-size:.78rem;text-transform:capitalize}
 .sp{flex:1}.row{display:flex;align-items:center;gap:10px}
-.ib{width:42px;height:42px;border-radius:14px;border:1px solid var(--bd);background:var(--glass);color:var(--txt);font-size:1rem;cursor:pointer;backdrop-filter:blur(12px)}
+.ib{width:42px;height:42px;border-radius:14px;border:1px solid var(--bd);background:var(--glass);color:var(--txt);font-size:1rem;cursor:pointer;backdrop-filter:blur(12px);position:relative}
+.ib .badge{position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:.65rem;font-weight:800;border-radius:99px;padding:2px 6px;border:2px solid var(--solid)}
 .av{width:46px;height:46px;border-radius:16px;background:var(--ac);color:var(--on);display:grid;place-items:center;font-weight:800;font-size:1.1rem;object-fit:cover;flex:none;cursor:pointer}
 .hero{padding:22px;background:linear-gradient(140deg,var(--ac),color-mix(in srgb,var(--ac) 50%,#000));color:var(--on);border:0}
 .hero small{opacity:.88;font-weight:600}.hero b{display:block;font-size:2.4rem;font-weight:800;letter-spacing:-.03em;margin:4px 0 14px}
@@ -88,7 +89,8 @@ nav button{transition:all .2s}nav button.on{box-shadow:0 6px 18px color-mix(in s
 <body>
 <div id="app"></div>
 <script>
-const $=s=>document.querySelector(s),money=n=>'$'+Math.round(n||0).toLocaleString('es-CO'),v=id=>document.getElementById(id)?.value.trim();
+// FORMATO DE MONEDA SIN DECIMALES NI PUNTOS DE MILES (EJ: $5000)
+const $=s=>document.querySelector(s),money=n=>'$'+Math.round(n||0),v=id=>document.getElementById(id)?.value.trim();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toLocaleDateString('en-CA');
 const st={token:localStorage.tc_token||'',user:null,view:'home',date:today(),d:null};
@@ -116,6 +118,35 @@ const colorBar=()=>`<div style="margin-top:18px;text-align:left"><label style="m
 function setCustom(){const h=+$('#hue').value,l=+$('#lit').value;localStorage.tc_h=h;localStorage.tc_l=l;localStorage.tc_custom=hex2(h,82,l);theme();document.querySelectorAll('.sw button').forEach(b=>b.classList.remove('on'))}
 function countUp(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;const e=$('.hero b[data-v]');if(!e)return;const T=+e.dataset.v,t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/800);e.textContent=money(T*(1-Math.pow(1-k,3)));k<1&&requestAnimationFrame(f)})(t0)}
 const EC={'Pendiente':'#ef4444','En espera':'#f59e0b','Pagado':'#10b981'};
+
+/* ---------- Sistema de Notificación y Eliminación de Créditos Completados ---------- */
+function notifModal(){
+  const comp = st.d?.completados || [];
+  if(!comp.length){
+    return S({title:'Notificaciones', html:'<p style="color:var(--mut);margin:15px 0">No tienes créditos completados por eliminar.</p>', showConfirmButton:true, confirmButtonText:'Entendido'});
+  }
+  
+  let htmlList = `<div style="text-align:left;max-height:280px;overflow-y:auto;margin-top:10px">`;
+  comp.forEach(c => {
+    htmlList += `<div class="ln" style="align-items:center;padding:10px 0">
+      <div><b>${esc(c.cliente)}</b><br><small style="color:var(--ac)">Crédito pagado completamente (${money(c.total)})</small></div>
+      <button onclick="deleteCredit('${c.id}')" style="background:#ef4444;color:#fff;border:0;padding:6px 12px;border-radius:10px;font-weight:bold;cursor:pointer"><i class="fa-solid fa-trash"></i></button>
+    </div>`;
+  });
+  htmlList += `</div>`;
+  
+  S({title:'Créditos Completados', html: htmlList, showConfirmButton:false, showCloseButton:true});
+}
+
+function deleteCredit(id){
+  run(async()=>{
+    await api(`credits/${id}/delete`, 'POST');
+    Swal.close();
+    toast('Crédito eliminado de la lista');
+    load();
+  });
+}
+
 /* ---------- Acceso ---------- */
 function authView(){return `
 <div class="top"><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>
@@ -134,7 +165,10 @@ const doLogin=()=>run(async()=>enter(await api('login','POST',{id:v('a1'),passwo
 function recover(){S({title:'Recuperar acceso',html:'<input id="r1" class="swal2-input" placeholder="Usuario"><input id="r2" class="swal2-input" placeholder="Código de seguridad" inputmode="numeric"><input id="r3" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6)">',showCancelButton:true,confirmButtonText:'Cambiar clave',preConfirm:()=>api('recover','POST',{id:v('r1'),pin:v('r2'),password:v('r3')}).catch(e=>Swal.showValidationMessage(e.message))}).then(r=>r.isConfirmed&&toast('Contraseña actualizada'))}
 
 /* ---------- Pantallas ---------- */
-const head=t=>`<div class="top">${avatar(st.user)}<div><h1>${t}</h1><small>${fdate(st.date)}</small></div><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>`;
+const head=t=>{
+  const compCount = st.d?.completados?.length || 0;
+  return `<div class="top">${avatar(st.user)}<div><h1>${t}</h1><small>${fdate(st.date)}</small></div><div class="sp"></div><button class="ib" onclick="notifModal()" aria-label="Notificaciones"><i class="fa-solid fa-bell"></i>${compCount?`<span class="badge">${compCount}</span>`:''}</button><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>`;
+};
 const dateBar=()=>`<input type="date" value="${st.date}" onchange="st.date=this.value||today();load()" style="margin-bottom:12px" aria-label="Fecha">`;
 const closedBanner=()=>st.d.abierta?'':'<div class="warn"><i class="fa-solid fa-lock"></i> La caja de este día está cerrada. Ábrela para registrar movimientos.</div>';
 function home(){const d=st.d,t=d.rows.length,p=d.rows.filter(r=>r.estado==='Pagado').length,pe=d.rows.filter(r=>r.estado==='Pendiente').length;return head('Hola, '+esc(nm(st.user)))+dateBar()+`
@@ -167,7 +201,7 @@ const mov=t=>S({title:t==='gasto'?'Nuevo gasto':'Entrada adicional',html:'<input
 const cierre=()=>S({title:st.d.abierta?'¿Cerrar la caja de este día?':'¿Abrir la caja de nuevo?',text:st.d.abierta?'No podrás registrar abonos ni créditos hasta abrirla.':'',icon:'question',showCancelButton:true,confirmButtonText:'Sí, continuar'}).then(r=>r.isConfirmed&&run(async()=>{await api('cash','POST',{tipo:'cierre',fecha:st.date,abierta:!st.d.abierta});load()}));
 function activos(){const d=st.d;return head('Créditos activos')+`<div class="glass card">${d.activos.length?`<div class="tw"><table><thead><tr><th>Cliente</th><th>Total</th><th>Saldo</th></tr></thead><tbody>${d.activos.map(a=>`<tr><td>${esc(a.cliente)}</td><td>${money(a.total)}</td><td><b>${money(a.saldo)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No hay créditos activos.</div>'}<div class="ln" style="margin-top:8px"><span>Total cartera</span><b>${money(d.cartera)}</b></div></div>`}
 function reportes(){const d=st.d;return head('Reportes')+dateBar()+`<button class="btn" style="margin:0 0 12px" onclick="exportar()"><i class="fa-solid fa-file-csv"></i>&nbsp; Descargar reporte CSV / Excel</button><div class="glass card"><div style="font-weight:800;margin-bottom:6px">Historial de abonos</div>${d.historial.length?`<div class="tw"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Abono</th><th>Saldo</th></tr></thead><tbody>${d.historial.map(h=>`<tr><td>${h.fecha.slice(5)}</td><td>${esc(h.cliente)}</td><td>${money(h.monto)}</td><td>${money(h.saldo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Todavía no hay abonos.</div>'}</div>`}
-const exportar=()=>run(async()=>{const r=await fetch('/api/export?date='+st.date,{headers:{'X-Token':st.token}});if(!r.ok)throw new Error('No se pudo generar el reporte');const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`TuCobro_${st.date}.csv`;a.click();toast('Reporte descargado')});
+const exportar=()=>run(async()=>{const r=await fetch('/api/export?date='+st.date,{headers:{'X-Token':st.token}});if(!r.ok)throw new Error('No se pudo generar el reporte');const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=`TuCobro_${st.date}.xls`;a.click();toast('Reporte descargado')});
 function perfil(){const u=st.user;return head('Mi perfil')+`<div class="glass card" style="text-align:center"><label for="ph" style="cursor:pointer;margin:0">${avatar(u,'width:88px;height:88px;margin:0 auto 8px;font-size:2rem;border-radius:28px')}<span style="color:var(--ac);font-size:.85rem;font-weight:700"><i class="fa-solid fa-camera"></i> Cambiar foto</span></label><input id="ph" type="file" accept="image/*" hidden onchange="foto(this.files[0])">
 <label style="text-align:left">Nombre visible</label><input id="pn" value="${esc(nm(u))}" maxlength="40"><button class="btn" onclick="guardaNombre()">Guardar nombre</button></div>
 <div class="glass card"><label style="margin-top:0;text-align:center">Color de la app</label><div class="sw">${swatches()}</div>${colorBar()}</div><button class="btn alt" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i>&nbsp; Cerrar sesión</button>`}
