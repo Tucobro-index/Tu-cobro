@@ -34,7 +34,6 @@ def err(msg, code=400): return jsonify(error=msg), code
 def okdate(s): return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", s or ""))
 def digits(s): return "".join(c for c in str(s) if c.isdigit())
 
-# Función segura para evitar KeyError si falta algún campo opcional
 def public(u): 
     return {
         "id": u.get("id", ""),
@@ -45,7 +44,8 @@ def public(u):
         "foto": u.get("foto", "")
     }
 
-def tok(t): return secrets.token_hex(32)
+# CORRECCIÓN: La función tok ahora devuelve el token correctamente sin descartarlo
+def tok(t): return str(t or "")
 
 def session(u):
     t = secrets.token_urlsafe(32)
