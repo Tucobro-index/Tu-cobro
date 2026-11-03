@@ -282,73 +282,44 @@ def cash():
     save()
     return jsonify(ok=True)
 
+def safe(v):
+    v = str(v)
+    return "'" + v if v[:1] in "=+-@" else v
+
 @app.get("/api/export")
 def export():
     u = me()
     if not u: return err("Sesión expirada", 401)
     d = request.args.get("date", "")
     if not okdate(d): return err("Fecha inválida")
-    s = summary(u, d)
+    s, out = summary(u, d), io.StringIO()
+    w = csv.writer(out, delimiter=';')
     
-    html = f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<style>
-  body {{ font-family: Arial, sans-serif; margin: 20px; }}
-  h2 {{ color: #059669; }}
-  table {{ border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 20px; }}
-  th, td {{ border: 1px solid #d1d5db; padding: 10px 12px; text-align: left; font-size: 14px; }}
-  th {{ background-color: #065f46; color: #ffffff; font-weight: bold; }}
-  .red {{ background-color: #fee2e2; color: #991b1b; font-weight: bold; }}
-  .green {{ background-color: #d1fae5; color: #065f46; font-weight: bold; }}
-  .summary-table td {{ font-weight: bold; background-color: #f3f4f6; }}
-</style>
-</head>
-<body>
-  <h2>Tu Cobro - Reporte del {d}</h2>
-  <table>
-    <tr>
-      <th>Cliente</th>
-      <th>Cuota Diaria</th>
-      <th>Cuotas Pendientes</th>
-      <th>Abonó Hoy</th>
-      <th>Saldo</th>
-      <th>Estado</th>
-    </tr>"""
-
+    w.writerow(["Tu Cobro", d])
+    w.writerow([])
+    w.writerow(["Base inicial", int(s["base"])])
+    w.writerow(["Ingresos (recaudo)", int(s["recaudo"])])
+    w.writerow(["Entradas adicionales", int(s["extras_total"])])
+    w.writerow(["Créditos entregados", int(s["egresos"])])
+    w.writerow(["Gastos", int(s["gastos_total"])])
+    w.writerow(["Efectivo en caja", int(s["caja"])])
+    w.writerow(["Cartera activa", int(s["cartera"])])
+    w.writerow([])
+    
+    w.writerow(["CLIENTE", "CUOTA", "CUOTA PENDIENTE", "ABONO HOY", "SALDO", "ESTADO"])
     for r in s["rows"]:
         pago_hoy = int(r["hoy"])
-        row_class = "green" if pago_hoy > 0 else "red"
-        estado_txt = "Pagó" if pago_hoy > 0 else "No pagó"
+        estado_txt = "PAGADO" if pago_hoy > 0 else "PENDIENTE"
+        w.writerow([
+            safe(r["cliente"]), 
+            int(r["cuota"]), 
+            int(r["faltan"]), 
+            pago_hoy, 
+            int(r["saldo"]), 
+            estado_txt
+        ])
         
-        html += f"""
-    <tr class="{row_class}">
-      <td>{r["cliente"]}</td>
-      <td>{int(r["cuota"])}</td>
-      <td>{int(r["faltan"])}</td>
-      <td>{pago_hoy}</td>
-      <td>{int(r["saldo"])}</td>
-      <td>{r["estado"]} ({estado_txt})</td>
-    </tr>"""
-
-    html += f"""
-  </table>
-  
-  <h3>Resumen de Caja</h3>
-  <table class="summary-table">
-    <tr><td>Base inicial</td><td>{int(s["base"])}</td></tr>
-    <tr><td>Ingresos (recaudo)</td><td>{int(s["recaudo"])}</td></tr>
-    <tr><td>Entradas adicionales</td><td>{int(s["extras_total"])}</td></tr>
-    <tr><td>Créditos entregados</td><td>{int(s["egresos"])}</td></tr>
-    <tr><td>Gastos</td><td>{int(s["gastos_total"])}</td></tr>
-    <tr><td>Efectivo en caja</td><td>{int(s["caja"])}</td></tr>
-    <tr><td>Cartera activa</td><td>{int(s["cartera"])}</td></tr>
-  </table>
-</body>
-</html>"""
-
-    return Response(html, mimetype="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename=tu-cobro-{d}.xls"})
+    return Response("\ufeff" + out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename=tu-cobro-{d}.csv"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=os.getenv("TUCOBRO_DEBUG") == "1")
