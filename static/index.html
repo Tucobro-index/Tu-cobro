@@ -16,7 +16,6 @@ body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--t
 body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(90px);z-index:-1;background:var(--ac);transition:background .4s}
 body::before{width:340px;height:340px;top:-90px;right:-100px;opacity:.38}body::after{width:280px;height:280px;bottom:50px;left:-110px;opacity:.2}
 
-/* --- Adaptabilidad PC vs Celular --- */
 #app{max-width:480px;margin:auto;padding:max(14px,env(safe-area-inset-top)) 16px 120px}
 @media(min-width:768px){
   body{display:grid;place-items:center;padding:30px 0}
@@ -32,7 +31,6 @@ body::before{width:340px;height:340px;top:-90px;right:-100px;opacity:.38}body::a
 .av{width:46px;height:46px;border-radius:16px;background:var(--ac);color:var(--on);display:grid;place-items:center;font-weight:800;font-size:1.1rem;object-fit:cover;flex:none;cursor:pointer}
 .hero{padding:22px;background:linear-gradient(140deg,var(--ac),color-mix(in srgb,var(--ac) 50%,#000));color:var(--on);border:0}
 .hero small{opacity:.88;font-weight:600}.hero b{display:block;font-size:2.4rem;font-weight:800;letter-spacing:-.03em;margin:4px 0 14px}
-.bar{height:8px;border-radius:9px;background:rgba(255,255,255,.28);overflow:hidden}.bar i{display:block;height:100%;background:#fff;border-radius:9px;transition:width .5s}
 .pill{background:rgba(255,255,255,.22);padding:4px 11px;border-radius:99px;font-size:.7rem;font-weight:800}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:2px 0 14px}
 .stat small{color:var(--mut);font-weight:600;font-size:.78rem}.stat b{display:block;font-size:1.3rem;font-weight:800;margin-top:4px}.stat i{color:var(--ac);margin-right:6px}
@@ -40,6 +38,9 @@ body::before{width:340px;height:340px;top:-90px;right:-100px;opacity:.38}body::a
 label{display:block;font-size:.8rem;font-weight:700;color:var(--mut);margin:14px 0 6px}
 input,select{width:100%;padding:14px;border-radius:15px;border:1px solid var(--bd);background:var(--inp);color:var(--txt);font:inherit;outline:0}
 input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(in srgb,var(--ac) 25%,transparent)}input[readonly]{font-weight:800;color:var(--ac)}
+.pass-box{position:relative;display:flex;align-items:center}
+.pass-box input{padding-right:45px}
+.pass-toggle{position:absolute;right:12px;background:none;border:0;color:var(--mut);cursor:pointer;font-size:1.1rem;padding:4px}
 .btn{width:100%;padding:15px;border:0;border-radius:16px;background:var(--ac);color:var(--on);font:800 .95rem Manrope;cursor:pointer;margin-top:16px;box-shadow:0 8px 20px color-mix(in srgb,var(--ac) 38%,transparent)}
 .btn.alt{background:var(--glass);color:var(--txt);border:1px solid var(--bd);box-shadow:none;margin-top:10px}.btn.red{background:#ef4444;color:#fff}
 .btn:active,.sm:active{transform:scale(.97)}
@@ -49,7 +50,6 @@ input:focus,select:focus{border-color:var(--ac);box-shadow:0 0 0 3px color-mix(i
 .acts{display:flex;gap:8px;margin-top:12px}.sm{flex:1;padding:11px;border-radius:13px;border:1px solid var(--bd);background:var(--inp);color:var(--txt);font:700 .82rem Manrope;cursor:pointer}.sm.p{background:var(--ac);color:var(--on);border:0}.sm.w{color:#1fa855}
 nav{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));width:min(448px,calc(100% - 28px));display:flex;padding:7px;gap:3px;z-index:5}
 nav button{flex:1;border:0;background:none;color:var(--mut);padding:9px 0;border-radius:18px;font:700 .66rem Manrope;cursor:pointer}nav button i{display:block;font-size:1.1rem;margin-bottom:3px}nav button.on{background:var(--ac);color:var(--on)}
-.tabs{display:flex;padding:5px;margin-bottom:10px}.tabs button{flex:1;padding:11px;border:0;border-radius:19px;background:none;color:var(--mut);font:800 .9rem Manrope;cursor:pointer}.tabs button.on{background:var(--ac);color:var(--on)}
 .sw{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:6px 0}.sw button{width:44px;height:44px;border-radius:50%;border:3px solid transparent;cursor:pointer}.sw button.on{border-color:var(--txt)}
 .brand{text-align:center;margin:30px 0 22px}.brand .av{margin:0 auto 12px;width:68px;height:68px;font-size:1.7rem;border-radius:24px;cursor:default}.brand h1{font-size:1.9rem;font-weight:800;letter-spacing:-.02em}.brand p{color:var(--mut);font-size:.9rem;margin-top:4px}
 .ln{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--ln);font-weight:600;font-size:.92rem}.ln:last-child{border:0}.ln b{font-weight:800;white-space:nowrap}
@@ -121,12 +121,17 @@ function authView(){return `
 <div class="top"><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>
 <div class="brand"><div class="av"><i class="fa-solid fa-hand-holding-dollar"></i></div><h1>Tu Cobro</h1><p>Tu ruta, tu caja y tus clientes en un solo lugar</p></div>
 <div class="glass card"><form onsubmit="event.preventDefault();doLogin()">
-<label style="margin-top:0">Usuario, correo o teléfono</label><input id="a1" autocomplete="username" required>
-<label>Contraseña</label><input id="a3" type="password" autocomplete="current-password" required>
+<label style="margin-top:0">Usuario</label><input id="a1" autocomplete="username" required>
+<label>Contraseña</label>
+<div class="pass-box">
+  <input id="a3" type="password" autocomplete="current-password" required>
+  <button type="button" class="pass-toggle" onclick="togglePass()"><i id="eye-icon" class="fa-solid fa-eye"></i></button>
+</div>
 <button class="btn">Iniciar sesión</button></form>
 <button class="link" onclick="recover()">¿Olvidaste tu contraseña?</button></div>`}
+function togglePass(){const i=$('#a3'),e=$('#eye-icon');if(i.type==='password'){i.type='text';e.className='fa-solid fa-eye-slash'}else{i.type='password';e.className='fa-solid fa-eye'}}
 const doLogin=()=>run(async()=>enter(await api('login','POST',{id:v('a1'),password:v('a3')})));
-function recover(){S({title:'Recuperar acceso',html:'<input id="r1" class="swal2-input" placeholder="Usuario, correo o teléfono"><input id="r2" class="swal2-input" placeholder="Código de seguridad" inputmode="numeric"><input id="r3" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6)">',showCancelButton:true,confirmButtonText:'Cambiar clave',preConfirm:()=>api('recover','POST',{id:v('r1'),pin:v('r2'),password:v('r3')}).catch(e=>Swal.showValidationMessage(e.message))}).then(r=>r.isConfirmed&&toast('Contraseña actualizada'))}
+function recover(){S({title:'Recuperar acceso',html:'<input id="r1" class="swal2-input" placeholder="Usuario"><input id="r2" class="swal2-input" placeholder="Código de seguridad" inputmode="numeric"><input id="r3" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6)">',showCancelButton:true,confirmButtonText:'Cambiar clave',preConfirm:()=>api('recover','POST',{id:v('r1'),pin:v('r2'),password:v('r3')}).catch(e=>Swal.showValidationMessage(e.message))}).then(r=>r.isConfirmed&&toast('Contraseña actualizada'))}
 
 /* ---------- Pantallas ---------- */
 const head=t=>`<div class="top">${avatar(st.user)}<div><h1>${t}</h1><small>${fdate(st.date)}</small></div><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>`;
