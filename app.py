@@ -181,23 +181,24 @@ def summary(u, d):
         rec += hoy; cartera += saldo
         for a in c["abonos"]:
             bal -= a["monto"]
-            hist.append(dict(fecha=a["fecha"], cliente=c["cliente"], monto=a["monto"], saldo=max(round(bal), 0)))
+            hist.append(dict(fecha=a["fecha"], cliente=c["cliente"], monto=int(a["monto"]), saldo=int(max(round(bal), 0))))
         if saldo > 0: 
-            activos.append(dict(cliente=c["cliente"], total=c["total"], saldo=saldo))
+            activos.append(dict(cliente=c["cliente"], total=int(c["total"]), saldo=int(saldo)))
         else:
-            completados.append(dict(id=c["id"], cliente=c["cliente"], total=c["total"]))
+            completados.append(dict(id=c["id"], cliente=c["cliente"], total=int(c["total"])))
             
         if saldo > 0 or hoy > 0:
             est = "Pagado" if hoy >= c["cuota"] or saldo <= 0 else ("En espera" if c.get("espera") == d else "Pendiente")
-            rows.append({**{k: c.get(k, "") for k in ("id", "cliente", "cc", "direccion", "tel", "total", "cuota")}, "saldo": saldo, "hoy": hoy, "estado": est,
-                         "faltan": math.ceil(saldo / c["cuota"]) if saldo else 0})
+            rows.append({**{k: c.get(k, "") for k in ("id", "cliente", "cc", "direccion", "tel")}, 
+                         "total": int(c["total"]), "cuota": int(c["cuota"]), "saldo": int(saldo), "hoy": int(hoy), "estado": est,
+                         "faltan": int(math.ceil(saldo / c["cuota"]) if saldo else 0)})
     egresos = sum(c["capital"] for c in u["credits"] if c["fecha"] == d)
     gastos, extras = [g for g in u["gastos"] if g["fecha"] == d], [x for x in u["extras"] if x["fecha"] == d]
     gt, et, base = sum(g["monto"] for g in gastos), sum(x["monto"] for x in extras), u["bases"].get(d, 0)
     hist.sort(key=lambda h: h["fecha"], reverse=True)
-    return dict(rows=rows, activos=activos, completados=completados, historial=hist[:80], recaudo=rec, cartera=cartera, base=base, egresos=egresos,
-                gastos=gastos, gastos_total=gt, extras=extras, extras_total=et, abierta=not closed(u, d),
-                caja=base + rec + et - egresos - gt)
+    return dict(rows=rows, activos=activos, completados=completados, historial=hist[:80], recaudo=int(rec), cartera=int(cartera), base=int(base), egresos=int(egresos),
+                gastos=gastos, gastos_total=int(gt), extras=extras, extras_total=int(et), abierta=not closed(u, d),
+                caja=int(base + rec + et - egresos - gt))
 
 def guard(f):
     u = me()
@@ -224,8 +225,8 @@ def new_credit():
     except Exception: return err("Revisa cliente, capital, interés y plazo")
     total = cap * (1 + it / 100)
     nc = dict(id=uuid.uuid4().hex[:8], cliente=d["cliente"].strip()[:80], cc=digits(d.get("cc", ""))[:15],
-              direccion=str(d.get("direccion", "")).strip()[:120], tel=digits(d.get("tel", ""))[:15], capital=cap,
-              interes=it, dias=dias, total=round(total), cuota=math.ceil(total / dias), fecha=d["fecha"], abonos=[])
+              direccion=str(d.get("direccion", "")).strip()[:120], tel=digits(d.get("tel", ""))[:15], capital=int(cap),
+              interes=it, dias=dias, total=int(round(total)), cuota=int(math.ceil(total / dias)), fecha=d["fecha"], abonos=[])
     ids, pos = [c["id"] for c in u["credits"]], d.get("despues", "")
     u["credits"].insert(ids.index(pos) + 1 if pos in ids else (0 if not pos else len(ids)), nc)
     save()
@@ -239,7 +240,7 @@ def pay(cid):
     c = next((c for c in u["credits"] if c["id"] == cid), None)
     try: m = float(d["monto"]); assert 0 < m < 1e10 and c
     except Exception: return err("Monto inválido")
-    c["abonos"].append(dict(fecha=d["fecha"], monto=m)); c.pop("espera", None)
+    c["abonos"].append(dict(fecha=d["fecha"], monto=int(m))); c.pop("espera", None)
     save()
     return jsonify(ok=True)
 
@@ -274,16 +275,12 @@ def cash():
     try: m = float(d["monto"]); assert 0 <= m < 1e10
     except Exception: return err("Monto inválido")
     t, concepto = d.get("tipo"), (str(d.get("concepto", "")).strip() or "Sin concepto")[:60]
-    if t == "base": u["bases"][d["fecha"]] = int(m) # Asegurar entero para la base
-    elif t == "gasto": u["gastos"].append(dict(fecha=d["fecha"], concepto=concepto, monto=m))
-    elif t == "extra": u["extras"].append(dict(fecha=d["fecha"], concepto=concepto, monto=m))
+    if t == "base": u["bases"][d["fecha"]] = int(m)
+    elif t == "gasto": u["gastos"].append(dict(fecha=d["fecha"], concepto=concepto, monto=int(m)))
+    elif t == "extra": u["extras"].append(dict(fecha=d["fecha"], concepto=concepto, monto=int(m)))
     else: return err("Operación inválida")
     save()
     return jsonify(ok=True)
-
-def safe(v):
-    v = str(v)
-    return "'" + v if v[:1] in "=+-@" else v
 
 @app.get("/api/export")
 def export():
@@ -291,16 +288,67 @@ def export():
     if not u: return err("Sesión expirada", 401)
     d = request.args.get("date", "")
     if not okdate(d): return err("Fecha inválida")
-    s, out = summary(u, d), io.StringIO()
-    w = csv.writer(out, delimiter=';')
-    w.writerow(["Tu Cobro", d]); w.writerow([])
-    w.writerow(["Cliente", "Cuota diaria", "Cuotas pendientes", "Abonó hoy", "Saldo", "Estado"])
-    for r in s["rows"]: w.writerow([safe(r["cliente"]), r["cuota"], r["faltan"], r["hoy"], r["saldo"], r["estado"]])
-    w.writerow([])
-    for k, v in [("Base inicial", s["base"]), ("Ingresos (recaudo)", s["recaudo"]), ("Entradas adicionales", s["extras_total"]),
-                 ("Créditos entregados", s["egresos"]), ("Gastos", s["gastos_total"]), ("Efectivo en caja", s["caja"]), ("Cartera activa", s["cartera"])]:
-        w.writerow([k, v])
-    return Response("\ufeff" + out.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment; filename=tu-cobro-{d}.csv"})
+    s = summary(u, d)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  body {{ font-family: Arial, sans-serif; margin: 20px; }}
+  h2 {{ color: #059669; }}
+  table {{ border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 20px; }}
+  th, td {{ border: 1px solid #d1d5db; padding: 10px 12px; text-align: left; font-size: 14px; }}
+  th {{ background-color: #065f46; color: #ffffff; font-weight: bold; }}
+  .red {{ background-color: #fee2e2; color: #991b1b; font-weight: bold; }}
+  .green {{ background-color: #d1fae5; color: #065f46; font-weight: bold; }}
+  .summary-table td {{ font-weight: bold; background-color: #f3f4f6; }}
+</style>
+</head>
+<body>
+  <h2>Tu Cobro - Reporte del {d}</h2>
+  <table>
+    <tr>
+      <th>Cliente</th>
+      <th>Cuota Diaria</th>
+      <th>Cuotas Pendientes</th>
+      <th>Abonó Hoy</th>
+      <th>Saldo</th>
+      <th>Estado</th>
+    </tr>"""
+
+    for r in s["rows"]:
+        pago_hoy = int(r["hoy"])
+        row_class = "green" if pago_hoy > 0 else "red"
+        estado_txt = "Pagó" if pago_hoy > 0 else "No pagó"
+        
+        html += f"""
+    <tr class="{row_class}">
+      <td>{r["cliente"]}</td>
+      <td>{int(r["cuota"])}</td>
+      <td>{int(r["faltan"])}</td>
+      <td>{pago_hoy}</td>
+      <td>{int(r["saldo"])}</td>
+      <td>{r["estado"]} ({estado_txt})</td>
+    </tr>"""
+
+    html += f"""
+  </table>
+  
+  <h3>Resumen de Caja</h3>
+  <table class="summary-table">
+    <tr><td>Base inicial</td><td>{int(s["base"])}</td></tr>
+    <tr><td>Ingresos (recaudo)</td><td>{int(s["recaudo"])}</td></tr>
+    <tr><td>Entradas adicionales</td><td>{int(s["extras_total"])}</td></tr>
+    <tr><td>Créditos entregados</td><td>{int(s["egresos"])}</td></tr>
+    <tr><td>Gastos</td><td>{int(s["gastos_total"])}</td></tr>
+    <tr><td>Efectivo en caja</td><td>{int(s["caja"])}</td></tr>
+    <tr><td>Cartera activa</td><td>{int(s["cartera"])}</td></tr>
+  </table>
+</body>
+</html>"""
+
+    return Response(html, mimetype="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename=tu-cobro-{d}.xls"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=os.getenv("TUCOBRO_DEBUG") == "1")
