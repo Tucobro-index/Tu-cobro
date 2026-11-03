@@ -91,7 +91,7 @@ nav button{transition:all .2s}nav button.on{box-shadow:0 6px 18px color-mix(in s
 const $=s=>document.querySelector(s),money=n=>'$'+Math.round(n||0).toLocaleString('es-CO'),v=id=>document.getElementById(id)?.value.trim();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toLocaleDateString('en-CA');
-const st={token:localStorage.tc_token||'',user:null,view:'home',date:today(),d:null,mode:'login'};
+const st={token:localStorage.tc_token||'',user:null,view:'home',date:today(),d:null};
 const ACC={Esmeralda:['#10b981','#fff'],'Azul eléctrico':['#2f6bff','#fff'],Morado:['#8b5cf6','#fff'],Fucsia:['#d946ef','#fff'],Ámbar:['#f59e0b','#201500']};
 const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
 const S=o=>Swal.fire({background:css('--solid'),color:css('--txt'),confirmButtonColor:css('--ac'),cancelButtonText:'Cancelar',...o});
@@ -103,7 +103,7 @@ const pickColor=()=>S({title:'Color de la app',html:`<div class="sw">${swatches(
 const setAcc=n=>{localStorage.removeItem('tc_custom');localStorage.tc_acc=n;theme();Swal.close();render()};
 async function api(p,m='GET',b){const r=await fetch('/api/'+p,{method:m,headers:{'Content-Type':'application/json','X-Token':st.token},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));if(r.status===401&&st.user)endSession();if(!r.ok)throw new Error(j.error||'Error de conexión');return j}
 const run=async f=>{try{await f()}catch(e){S({icon:'error',title:'No se pudo completar',text:e.message})}};
-function enter(j,nuevo){st.token=j.token;st.user=j.user;localStorage.tc_token=j.token;st.view='home';st.d=null;load().then(()=>nuevo&&pedirNombre())}
+function enter(j){st.token=j.token;st.user=j.user;localStorage.tc_token=j.token;st.view='home';st.d=null;load()}
 function endSession(){st.token='';st.user=null;st.d=null;localStorage.removeItem('tc_token');render()}
 const logout=()=>run(async()=>{await api('logout','POST');endSession()});
 async function load(){try{st.d=await api('data?date='+st.date);render()}catch(e){if(st.user)S({icon:'error',title:'Sin conexión',text:e.message})}}
@@ -117,20 +117,15 @@ function setCustom(){const h=+$('#hue').value,l=+$('#lit').value;localStorage.tc
 function countUp(){if(matchMedia('(prefers-reduced-motion:reduce)').matches)return;const e=$('.hero b[data-v]');if(!e)return;const T=+e.dataset.v,t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/800);e.textContent=money(T*(1-Math.pow(1-k,3)));k<1&&requestAnimationFrame(f)})(t0)}
 const EC={'Pendiente':'#ef4444','En espera':'#f59e0b','Pagado':'#10b981'};
 /* ---------- Acceso ---------- */
-function authView(){const l=st.mode==='login';return `
+function authView(){return `
 <div class="top"><div class="sp"></div><button class="ib" onclick="pickColor()" aria-label="Color"><i class="fa-solid fa-palette"></i></button><button class="ib" onclick="toggleTheme()" aria-label="Tema"><i class="fa-solid fa-circle-half-stroke"></i></button></div>
 <div class="brand"><div class="av"><i class="fa-solid fa-hand-holding-dollar"></i></div><h1>Tu Cobro</h1><p>Tu ruta, tu caja y tus clientes en un solo lugar</p></div>
-<div class="glass tabs"><button class="${l?'on':''}" onclick="st.mode='login';render()">Entrar</button><button class="${l?'':'on'}" onclick="st.mode='reg';render()">Crear cuenta</button></div>
-<div class="glass card"><form onsubmit="event.preventDefault();${l?'doLogin()':'doReg()'}">
-<label style="margin-top:0">${l?'Usuario, correo o teléfono':'Usuario'}</label><input id="a1" autocomplete="username" required>
-${l?'':'<label>Correo o teléfono</label><input id="a2" required>'}
-<label>Contraseña${l?'':' (mínimo 6 caracteres)'}</label><input id="a3" type="password" autocomplete="${l?'current-password':'new-password'}" required>
-${l?'':'<label>Código de seguridad (para recuperar tu clave)</label><input id="a4" inputmode="numeric" maxlength="6" placeholder="Mínimo 4 dígitos" required>'}
-<button class="btn">${l?'Iniciar sesión':'Crear mi cuenta'}</button></form>
-${l?'<button class="link" onclick="recover()">¿Olvidaste tu contraseña?</button>':''}</div>`}
+<div class="glass card"><form onsubmit="event.preventDefault();doLogin()">
+<label style="margin-top:0">Usuario, correo o teléfono</label><input id="a1" autocomplete="username" required>
+<label>Contraseña</label><input id="a3" type="password" autocomplete="current-password" required>
+<button class="btn">Iniciar sesión</button></form>
+<button class="link" onclick="recover()">¿Olvidaste tu contraseña?</button></div>`}
 const doLogin=()=>run(async()=>enter(await api('login','POST',{id:v('a1'),password:v('a3')})));
-const doReg=()=>run(async()=>enter(await api('register','POST',{usuario:v('a1'),contacto:v('a2'),password:v('a3'),pin:v('a4')}),true));
-function pedirNombre(){S({title:'¿Cómo quieres que te llamemos?',text:'Este nombre se mostrará en lugar de tu correo o teléfono.',input:'text',inputPlaceholder:'Tu nombre',allowOutsideClick:false,inputValidator:x=>!x.trim()&&'Escribe un nombre'}).then(r=>run(async()=>{st.user=(await api('profile','PUT',{nombre:r.value})).user;render()}))}
 function recover(){S({title:'Recuperar acceso',html:'<input id="r1" class="swal2-input" placeholder="Usuario, correo o teléfono"><input id="r2" class="swal2-input" placeholder="Código de seguridad" inputmode="numeric"><input id="r3" type="password" class="swal2-input" placeholder="Nueva contraseña (mín. 6)">',showCancelButton:true,confirmButtonText:'Cambiar clave',preConfirm:()=>api('recover','POST',{id:v('r1'),pin:v('r2'),password:v('r3')}).catch(e=>Swal.showValidationMessage(e.message))}).then(r=>r.isConfirmed&&toast('Contraseña actualizada'))}
 
 /* ---------- Pantallas ---------- */
