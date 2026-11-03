@@ -1,14 +1,12 @@
 """Tu Cobro - backend Flask. Persistencia JSON atómica con copias diarias (data.json + backups/)."""
-import csv, hashlib, io, json, math, os, re, secrets, shutil, threading, time, uuid
+import csv, io, json, math, os, re, secrets, shutil, threading, time, uuid
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
-from werkzeug.security import check_password_hash as chk, generate_password_hash as gen
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE, "data.json")
 TTL = 30 * 86400          # duración de la sesión
 LOCK = threading.RLock()
-FAILS = {}                # intentos fallidos: clave -> (n, último)
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config["MAX_CONTENT_LENGTH"] = 1_000_000
 db = json.load(open(DB_FILE, encoding="utf-8")) if os.path.exists(DB_FILE) else {"users": {}}
@@ -36,7 +34,7 @@ def err(msg, code=400): return jsonify(error=msg), code
 def okdate(s): return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", s or ""))
 def digits(s): return "".join(c for c in str(s) if c.isdigit())
 def public(u): return {k: u[k] for k in ("id", "usuario", "email", "tel", "nombre", "foto")}
-def tok(t): return hashlib.sha256(t.encode()).hexdigest()
+def tok(t): return secrets.token_hex(32)
 
 def session(u):
     t = secrets.token_urlsafe(32)
@@ -53,21 +51,9 @@ def me():
         for k, v in (("extras", []), ("cierres", {}), ("gastos", []), ("bases", {})): u.setdefault(k, v)
     return u
 
-def throttled(key):
-    n, t = FAILS.get(key, (0, 0))
-    return n >= 5 and time.time() - t < 600
-def failed(key): FAILS[key] = (FAILS.get(key, (0, 0))[0] + 1, time.time())
-
 def find(key):
     k = (key or "").strip().lower()
-    return next((u for u in db["users"].values() if k and k in (u["usuario"].lower(), u["email"].lower(), u["tel"])), None)
-
-def new_user(usuario, email, tel, password, pin, nombre=""):
-    u = dict(id=uuid.uuid4().hex, usuario=usuario, email=email, tel=tel, nombre=nombre, foto="", hash=gen(password), pin=gen(pin),
-             credits=[], gastos=[], extras=[], bases={}, cierres={})
-    db["users"][u["id"]] = u
-    save()
-    return u
+    return next((u for u in db["users"].values() if k and k == u["usuario"].lower()), None)
 
 @app.get("/")
 def index(): return app.send_static_file("index.html")
@@ -76,25 +62,21 @@ def index(): return app.send_static_file("index.html")
 @app.post("/api/login")
 def login():
     d = request.json or {}
-    key = f"{request.remote_addr}:{str(d.get('id', '')).lower()}"
-    if throttled(key): return err("Demasiados intentos. Espera 10 minutos e inténtalo de nuevo", 429)
     u = find(d.get("id"))
-    if not u or not chk(u["hash"], d.get("password", "")):
-        failed(key); return err("Datos de acceso incorrectos", 401)
-    FAILS.pop(key, None)
+    # Comprobación directa de contraseña en texto plano
+    if not u or u.get("password") != str(d.get("password", "")):
+        return err("Usuario o contraseña incorrectos", 401)
     return session(u)
 
 @app.post("/api/recover")
 def recover():
     d = request.json or {}
-    key = f"rec:{request.remote_addr}:{str(d.get('id', '')).lower()}"
-    if throttled(key): return err("Demasiados intentos. Espera 10 minutos", 429)
     u = find(d.get("id"))
-    if not u or not chk(u["pin"], str(d.get("pin", ""))) or len(d.get("password", "")) < 6:
-        failed(key); return err("Usuario o código incorrecto, o contraseña menor a 6 caracteres", 401)
-    FAILS.pop(key, None)
-    u["hash"] = gen(d["password"])
-    for k in [k for k, v in db["sessions"].items() if v["uid"] == u["id"]]: del db["sessions"][k]  # cierra otras sesiones
+    # Comprobación directa del PIN en texto plano
+    if not u or str(u.get("pin", "")) != str(d.get("pin", "")) or len(d.get("password", "")) < 6:
+        return err("Usuario o código incorrecto, o contraseña menor a 6 caracteres", 401)
+    u["password"] = str(d.get("password"))
+    for k in [k for k, v in db["sessions"].items() if v["uid"] == u["id"]]: del db["sessions"][k]
     save()
     return jsonify(ok=True)
 
@@ -169,9 +151,9 @@ def new_credit():
     except Exception: return err("Revisa cliente, capital, interés y plazo")
     total = cap * (1 + it / 100)
     nc = dict(id=uuid.uuid4().hex[:8], cliente=d["cliente"].strip()[:80], cc=digits(d.get("cc", ""))[:15],
-                             direccion=str(d.get("direccion", "")).strip()[:120], tel=digits(d.get("tel", ""))[:15], capital=cap,
-                             interes=it, dias=dias, total=round(total), cuota=math.ceil(total / dias), fecha=d["fecha"], abonos=[])
-    ids, pos = [c["id"] for c in u["credits"]], d.get("despues", "")  # posición en la ruta
+              direccion=str(d.get("direccion", "")).strip()[:120], tel=digits(d.get("tel", ""))[:15], capital=cap,
+              interes=it, dias=dias, total=round(total), cuota=math.ceil(total / dias), fecha=d["fecha"], abonos=[])
+    ids, pos = [c["id"] for c in u["credits"]], d.get("despues", "")
     u["credits"].insert(ids.index(pos) + 1 if pos in ids else (0 if not pos else len(ids)), nc)
     save()
     return jsonify(ok=True)
@@ -218,7 +200,7 @@ def cash():
     save()
     return jsonify(ok=True)
 
-def safe(v):  # evita inyección de fórmulas al abrir el CSV en Excel
+def safe(v):
     v = str(v)
     return "'" + v if v[:1] in "=+-@" else v
 
@@ -229,7 +211,6 @@ def export():
     d = request.args.get("date", "")
     if not okdate(d): return err("Fecha inválida")
     s, out = summary(u, d), io.StringIO()
-    # Usamos punto y coma (;) como delimitador para que Excel separe las columnas correctamente
     w = csv.writer(out, delimiter=';')
     w.writerow(["Tu Cobro", d]); w.writerow([])
     w.writerow(["Cliente", "Cuota diaria", "Cuotas pendientes", "Abonó hoy", "Saldo", "Estado"])
